@@ -1,0 +1,16 @@
+// Example JTAG SVF file 
+TRST ON;
+TRST OFF;
+ENDIR IDLE;
+ENDDR IDLE;
+STATE RESET;
+STATE IDLE;
+FREQUENCY 1E4 HZ;
+TIR 0;
+HIR 0;
+TDR 0;
+HDR 0;
+// Check idcode
+SIR 4 TDI (2) SMASK (f) TDO (5) MASK (f);
+SDR 32 TDI (deadbeef) SMASK (ffffffff) TDO (149511c3) MASK (ffffffff);
+RUNIDLE 102
