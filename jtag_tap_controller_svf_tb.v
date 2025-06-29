@@ -170,7 +170,7 @@ module jtag_tap_controller_svf_tb;
         if (statusI != 7) `uvm_error("PARSE", $sformatf("Invalid vector line: %s", line_from_file));
         `uvm_info("PARSE",
                   $sformatf("STEP=%d TRST=%b TMS=%b TDI=%b EXPTDO=%b MASK=%b REPCYC=%d", step, trst, tms, ptdi, exptdo, mask, repcyc),UVM_MEDIUM)
-        #(t_period/2+t_period/i_fraction) 
+        #(t_period/i_fraction) 
         if (mask==1&& tdo!==exptdo) begin
           `uvm_error("RUN",
                      $sformatf("MISMATCH STEP=%d TRST=%b TMS=%b TDI=%b EXPTDO=%b MASK=%b REPCYC=%d", step, trst, tms, ptdi, exptdo, mask, repcyc));
