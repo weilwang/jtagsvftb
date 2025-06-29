@@ -1,5 +1,3 @@
-// Code your testbench here
-// or browse Examples
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
 ////  jtag_tap_controller_svf_tb.v                               ////
@@ -41,6 +39,7 @@
 `define PRE_CYC 10  // PRE CYCLE NUM before reading the vector
 `define POST_CYC 10 // POST CYCLE NUM after reading the vector
 `define PERIOD              100ns  // default 100ns tck period
+`define MARGIN_FRACTION 10 // Fraction of clk for margin
 
 module jtag_tap_controller_svf_tb;
 
@@ -125,6 +124,8 @@ module jtag_tap_controller_svf_tb;
   		 
       in  = $fopen(vecfile,"r");
       mon = $fopen(vecout,"w");
+      if (in == 0) `uvm_fatal("FILE", $sformatf("Failed to open %s", vecfile));
+      if (mon == 0) `uvm_fatal("FILE", $sformatf("Failed to open %s", vecout));
     end
   
   // Clock generation (default TCK: 10 MHz, 100ns period, per SVF FREQUENCY 1.00E7 HZ)
@@ -139,10 +140,21 @@ module jtag_tap_controller_svf_tb;
       
       `uvm_info("TCKGEN", $sformatf("TCK Period is set to %f NS", t_period),UVM_MEDIUM)
     end
+    integer i_fraction, arg_fraction;
+    initial begin
+      i_fraction = `MARGIN_FRACTION;
+      if ($value$plusargs("MARGIN_FRACTION=%d",arg_fraction))
+        i_fraction = arg_fraction;
+      else
+        `uvm_warning("RUNOPT", 
+                     $sformatf("+MARGIN_FRACTION is not passed, use %d as default",`MARGIN_FRACTION));
+      if (i_fraction == 0) `uvm_fatal("CONFIG", "MARGIN_FRACTION cannot be zero"); 
+      `uvm_info("TCKGEN", $sformatf("MARGIN_FRACTION is set to %d for TDO setup time margin", i_fraction),UVM_MEDIUM)
+    end
     always #(t_period/2) tck = ~tck;
  
     always @ (posedge tck) begin
-      tdi <= #(t_period/10) ptdi;
+      tdi <= #(t_period/i_fraction) ptdi;
     end
   
  // DUT input driver code
@@ -155,13 +167,17 @@ module jtag_tap_controller_svf_tb;
         @ (negedge tck);
         statusI = $fscanf(in,
           "%d,%b,%b,%b,%b,%b,%d\n",step, trst, tms, ptdi, exptdo, mask, repcyc);
+        if (statusI != 7) `uvm_error("PARSE", $sformatf("Invalid vector line: %s", line_from_file));
         `uvm_info("PARSE",
                   $sformatf("STEP=%d TRST=%b TMS=%b TDI=%b EXPTDO=%b MASK=%b REPCYC=%d", step, trst, tms, ptdi, exptdo, mask, repcyc),UVM_MEDIUM)
-        #(t_period/2+t_period/10) 
+        #(t_period/2+t_period/i_fraction) 
         if (mask==1&& tdo!==exptdo) begin
           `uvm_error("RUN",
                      $sformatf("MISMATCH STEP=%d TRST=%b TMS=%b TDI=%b EXPTDO=%b MASK=%b REPCYC=%d", step, trst, tms, ptdi, exptdo, mask, repcyc));
         end
+        statusO = $fwrite(mon, "STEP=%d TRST=%b TMS=%b TDI=%b TDO=%b EXPTDO=%b MASK=%b REPCYC=%d\n",
+        step, trst, tms, ptdi, tdo, exptdo, mask, repcyc);
+        if (statusO == 0) `uvm_error("FILE", "Failed to write to vecout");
         repeat (repcyc-1) @ (negedge tck);
       end
       $fclose(in);
